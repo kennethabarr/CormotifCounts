@@ -1,0 +1,22 @@
+importFrom(graphics, abline, axis, layout, mtext, par, plot, rect,
+          segments, text)
+importFrom(grDevices, gray)
+import(affy, limma)
+export(cormotiffit,
+       cormotiffitall,
+       cormotiffitfull,
+	cormotiffitsep,          
+	generank,                         
+	plotIC,               
+	plotMotif)
+
+
+
+
+
+              
+              
+              
+
+              
+              

@@ -1,0 +1,9 @@
+citEntry(entry="TechReport",
+	author="Hongkai. Ji and Yingying Wei",
+	title="Correlation Motif",
+	institution="Johns Hopkins University, Department of Biostatistics",
+  	year="2011",
+	type="Technical report",
+	textVersion=paste("Correlation Motif", "Ji, H. and Wei, Y.", "2011, Technical Report,
+	Johns Hopkins University, Department of Biostatistics")
+)

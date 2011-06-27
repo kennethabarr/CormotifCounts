@@ -1,0 +1,196 @@
+% \VignetteIndexEntry{Cormotif Vignette}
+% \VignetteDepends{affy, limma}
+% \VignetteKeywords{microarray, differential expression}
+% \VignettePackage{Cormotif}
+\documentclass[a4paper]{article}
+
+\title{Correlation Motif Vignette}
+\author{Hongkai Ji, Yingying Wei}
+\begin{document}
+\maketitle
+\section{Introduction}
+
+The standard algorithms for detecting differential genes from
+microarray data are mostly designed for analyzing a single data set.
+However, with the wide use of microarray technologies in biology and
+medicine, many different microarray studies are available for the
+same biological problem. Separately analyzing each data set is not
+an ideal strategy as it may fail to detect some key genes showing
+low fold changes consistently in all studies. Jointly modeling all
+data allows one to borrow information across studies to improve
+statistical inference. However, the simple concordance model, which
+assumes that differential expression occurs in either all studies or
+none of the studies, fails to capture study-specific differentially
+expressed genes. A more flexible model which considers all possible
+differential expression patterns faces the problem of exponentially
+growing parameter space when the number of studies increases. Here the R package {\em Cormtoif \/}
+fits a Bayesian Hierachical model to address this dilemma
+while improving inference on differential expression. The algorithm
+automatically searches for a small number of latent probability
+vectors called {\em correlation motif \/} to capture the major correlation
+patterns among multiple data sets. The motifs provide the basis for
+sharing information across studies. The approach overcomes the
+barrier of exponentially growing parameter space and is capable of
+handling a large number of studies. Missing
+values are also handled by {\em Cormtoif \/}.
+
+\section{Data preparation}
+In order to fit the {\em correlation motif\/} model, one needs to call the function {\em cormotiffit\/}. The first requirement \texttt{exprs} is the matrix containing the gene expression data that needs to be analyzed. Each row of the matrix corresponds to a gene and each column of the matrix corresponds to a sample. The data should be normalized, for example by \texttt{RMA}, thus it is in {\em log2\/} scale.
+
+\parskip=\baselineskip
+\noindent
+The second arguement, \texttt{groupid}, identifies the group label of each sample. Here we use data {\em simudata2\/} as an illustration. {\em simudata2\/} are combined from four studies sharing the same $3,000$ genes, each having two experimental conditions and three samples for each condition. 
+
+<<>>=
+library(Cormotif)
+data(simudata2)
+colnames(simudata2)
+exprs.simu2<-as.matrix(simudata2[,2:25])
+data(simu2_groupid)
+simu2_groupid
+@
+
+\noindent
+The third arguement, \texttt{compid}, represents the study design and hence the comparison pattern. In {\em simudata2\/}, \texttt{R1,R2,R3} are samples from condition 1 in study 1 and \texttt{S1,S2,S3} are from condition 2 in study 1. Simiarly, \texttt{T1,T2,T3} represent condition 1 in study 2 and \texttt{U1,U2,U3} represent condition 2 in study 2, and so on so forth. We aim at detecting the differential expression pattern of a gene under two different experimental conditions in each study, so we make up the comparison matrix \texttt{simu2\_compgroup} as following:
+
+<<>>=
+data(simu2_compgroup)
+simu2_compgroup
+@
+
+\section{Model fitting}
+\subsection{No missing data}
+Once we have specified the group labels and the study design, we are able to fit the {\em correlation motif \/} model. We can fit the data with varying motif numbers and use information criterion, such as AIC or BIC, to select the best model. Here for {\em simudata2\/}, we fit 5 models with total motif patterns number varying from 1 to 5. And we can see later from the BIC plot, using BIC criterion, the best model is the one with 3 motifs.
+
+<<>>=
+motif.fitted<-cormotiffit(exprs.simu2,simu2_groupid,simu2_compgroup,
+			 K=1:5,max.iter=1000,BIC=TRUE)
+@
+\noindent
+After fitting the {\em correlation motif \/} model, we can check the BIC values obtained by all cluster numbers:
+<<>>=
+motif.fitted$bic
+plotIC(motif.fitted)
+@
+
+\begin{center}
+<<fig=TRUE,echo=FALSE>>=
+plotIC(motif.fitted)
+@
+\end{center}
+\noindent
+To picture the motif patterns learned by the algorithm, we can use function \texttt{plotMotif}. Each row in both graphs corresponds to the same one motif pattern. We call the left graph  {\em pattern graph \/} and the right bar chart {\em frequency graph \/}. In the pattern graph, each row indicates a motif pattern
+and each column represents a study. The grey scale of the cell
+$(k,d)$ demonstrates the probability of differential expression in
+study $d$ for pattern $k$, and the values are stored in \texttt{motif.fitted\$bestmotif\$motif.prior}. Each row of the frequency graph corresponds to
+the motif pattern in the same row of the left pattern graph. The
+length of the bar in the frequency graph shows the number of genes of the
+given pattern in the dataset, which is equal to \texttt{motif.fitted\$bestmotif\$motif.prior} multiplying the number of total genes. 
+
+\begin{center}
+<<fig=TRUE>>=
+plotMotif(motif.fitted)
+@
+\end{center}
+
+\noindent
+The posterior probability of differential expression for each gene in each study is saved in \texttt{motif.fitted\$bestmotif\$p.post}
+<<>>=
+head(motif.fitted$bestmotif$p.post)
+@
+
+\noindent
+And at 0.5 cutoff for the posterior distribution, the differential expression pattern can be obtained as following:
+<<>>=
+dif.pattern.simu2<-(motif.fitted$bestmotif$p.post>0.5)
+head(dif.pattern.simu2)
+@
+
+\noindent
+We can aslo order the genes in each study according to their posterior probability of differential expression:
+<<>>=
+topgenelist<-generank(motif.fitted$bestmotif$p.post)
+head(topgenelist)
+@
+
+\subsection{With missing data}
+{\em Cormtoif \/} can handle data with missing values automatically. Especially here we mimic a situtation where data are merged from studies conducted on different platforms, where different platforms have non-overlapping genes. We set the missing proportion to be 10\%.
+<<>>=
+misprop<-0.10
+@
+\noindent
+We assume the first two studies are conducted in one platform while the third and fourth studies are conducted on another platform. We randomly set 10\% of non-overlapping genes in each platform to be missing. Therefore, 10\% missing data actually means that 20\% of genes are present in only one of the two platforms. 
+<<>>=
+fullindex<-1:nrow(exprs.simu2)
+##sample index to mimic the merging of studies from different platforms
+mis_index1<-sample(fullindex,misprop*length(fullindex))
+mis_index2<-sample(fullindex[-mis_index1],misprop*length(fullindex))
+exprs.simu2.missing<-exprs.simu2
+exprs.simu2.missing[mis_index1,1:12]<-NA
+exprs.simu2.missing[mis_index2,13:24]<-NA
+@
+\noindent
+Now we fit the model again on the dataset with missing values and check the learned motifs.
+<<>>=
+motif.fitted.missing<-cormotiffit(exprs.simu2.missing,simu2_groupid,simu2_compgroup,
+				  K=1:5,max.iter=1000,BIC=TRUE)
+plotIC(motif.fitted.missing)
+plotMotif(motif.fitted.missing)
+@
+\begin{center}
+<<fig=TRUE,echo=FALSE>>=
+plotIC(motif.fitted.missing)
+@
+\end{center}
+\noindent
+We can see that under 10\% missingness our learned motif \texttt{motif.fitted.missing} behaves similar to the original \texttt{motif.fitted}
+\begin{center}
+<<fig=TRUE,echo=FALSE>>=
+plotMotif(motif.fitted.missing)
+@
+\end{center}
+
+\noindent
+From this example, we see that {\em Cormtoif \/} is able to deal with data merged from different platforms with non-overlapping genes.
+
+
+\subsection{Other correlation motif fit}
+
+The {\em all motif\/} method applies a
+Bayesian model assuming that genes are either differentially
+expressed in all studies or differentially expressed in none of the
+studies.
+<<>>=
+motif.fitted.all<-cormotiffitall(exprs.simu2,simu2_groupid,simu2_compgroup,max.iter=1)
+@
+
+\noindent
+The {\em
+separate motif\/} fits the mixture model to each study separately.
+
+<<>>=
+motif.fitted.sep<-cormotiffitsep(exprs.simu2,simu2_groupid,simu2_compgroup,max.iter=1)
+@
+
+\noindent
+The {\em full motif\/} fits all $2^D$ possible 0-1 motif patterns.
+<<>>=
+motif.fitted.full<-cormotiffitfull(exprs.simu2,simu2_groupid,simu2_compgroup,max.iter=1)
+@
+
+\begin{thebibliography}{99}
+
+\bibitem[Ji(2011)]{rcormotif}
+Ji, H., Wei, Y. (2011).
+\newblock Correlation Motif.
+\newblock \emph{Unpublished}.
+
+\bibitem[Smyth 2004]{rlimma}
+Smyth, G.K. (2004),
+\newblock Linear models and empirical Bayes methods
+for assessing differential expression in microarray experiments. 
+\newblock \emph{ Statistical Applications in Genetics
+and Molecular Biology} 3, Art. 3.
+
+\end{thebibliography}
+\end{document}
