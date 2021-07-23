@@ -319,7 +319,7 @@ cmfit<-function(x, type, K=1, tol=1e-3, max.iter=100) {
         log(1 - q)))/xrow			
     loglike.old <- loglike.old * xrow			
     result <- list(p.post = p.post, motif.prior = p, motif.q = q, 			
-        loglike = loglike.old)		
+        loglike = loglike.old, clustlike=clustlike, condlike=condlike)		
 }
 
 ## Fit using (0,0,...,0) and (1,1,...,1)
@@ -687,7 +687,7 @@ cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3,
 		bestflag=which(aic==min(aic))
 	}
 	result<-list(bestmotif=fitresult[[bestflag]],bic=cbind(K,bic),
-			aic=cbind(K,aic),loglike=cbind(K,loglike))
+			aic=cbind(K,aic),loglike=cbind(K,loglike), allmotifs=fitresult)
 	
 } 
 
