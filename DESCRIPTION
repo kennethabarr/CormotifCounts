@@ -1,13 +1,16 @@
-Package: Cormotif
+Package: CormotifCounts
 Type: Package
 Title: Correlation Motif Fit
 Version: 1.39.0
 Date: 2011-06-08
-Author: Hongkai Ji, Yingying Wei
-Maintainer: Yingying Wei <ywei@jhsph.edu>
-Description: It fits correlation motif model to multiple studies to
-        detect study specific differential expression patterns.
-Depends: R (>= 2.12.0), affy, limma
+Author: Kenneth Barr, Hongkai Ji, Yingying Wei
+Maintainer: Kenneth Barr <kenneth.a.barr@gmail.com>
+Description: Cormotif is a useful tool for identifying patterns of shared
+	DE between experiments, but was designed with Microarray's in mind. It
+	uses limma, but does not take advantage of precision weights provided
+	by voom. This package provides small updates to the Cormotif code so that
+	users can run it on count data from RNA-seq.
+Depends: R (>= 2.12.0), affy, limma, BiocParallel, edgeR, Rfast
 Imports: affy, graphics, grDevices
 License: GPL-2
 LazyLoad: yes

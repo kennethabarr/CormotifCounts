@@ -1,39 +1,169 @@
-## Fit limma model
-limmafit<-function(exprs,groupid,compid) {
-	compnum<-nrow(compid)
-	genenum<-nrow(exprs)	
-	limmat<-matrix(0,genenum,compnum)
-	limmas2<-rep(0,compnum)
-	limmadf<-rep(0,compnum)
-	limmav0<-rep(0,compnum)
-	limmag1num<-rep(0,compnum)
-	limmag2num<-rep(0,compnum)
+## Fit limma model using code as it is found in the original cormotif code. It has 
+## only been modified to add names to the matrix of t values, as well as the
+## limma fits
 
+limmafit.default <- function(exprs,groupid,compid) {
+	limmafits  <- list()
+	compnum    <- nrow(compid)
+	genenum    <- nrow(exprs)	
+	limmat     <- matrix(0,genenum,compnum)
+	limmas2    <- rep(0,compnum)
+	limmadf    <- rep(0,compnum)
+	limmav0    <- rep(0,compnum)
+	limmag1num <- rep(0,compnum)
+	limmag2num <- rep(0,compnum)
+
+	rownames(limmat)  <- rownames(exprs)
+	colnames(limmat)  <- rownames(compid)
+	names(limmas2)    <- rownames(compid)
+	names(limmadf)    <- rownames(compid)
+	names(limmav0)    <- rownames(compid)
+	names(limmag1num) <- rownames(compid)
+	names(limmag2num) <- rownames(compid)
+	
 	for(i in 1:compnum) {
-		selid1<-which(groupid == compid[i,1]) 
-		selid2<-which(groupid == compid[i,2])
-		eset<-new("ExpressionSet", exprs=cbind(exprs[,selid1],exprs[,selid2]))
-		g1num<-length(selid1)
-		g2num<-length(selid2)
-		designmat<-cbind(base=rep(1,(g1num+g2num)), delta=c(rep(0,g1num),rep(1,g2num)))
-		fit<-lmFit(eset,designmat)
-		fit<-eBayes(fit)
-		limmat[,i]<-fit$t[,2]
-		limmas2[i]<-fit$s2.prior
-		limmadf[i]<-fit$df.prior
-		limmav0[i]<-fit$var.prior[2]
-		limmag1num[i]<-g1num
-		limmag2num[i]<-g2num
+		selid1 <- which(groupid == compid[i,1]) 
+		selid2 <- which(groupid == compid[i,2])
+		eset   <- new("ExpressionSet", exprs=cbind(exprs[,selid1],exprs[,selid2]))
+		g1num  <- length(selid1)
+		g2num  <- length(selid2)
+		designmat <- cbind(base=rep(1,(g1num+g2num)), delta=c(rep(0,g1num),rep(1,g2num)))
+		fit <- lmFit(eset,designmat)
+		fit <- eBayes(fit)
+		limmat[,i] <- fit$t[,2]
+		limmas2[i] <- fit$s2.prior
+		limmadf[i] <- fit$df.prior
+		limmav0[i] <- fit$var.prior[2]
+		limmag1num[i] <- g1num
+		limmag2num[i] <- g2num
+		limmafits[[i]] <- fit
 
 		# log odds
 		# w<-sqrt(1+fit$var.prior[2]/(1/g1num+1/g2num))
 		# log(0.99)+dt(fit$t[1,2],g1num+g2num-2+fit$df.prior,log=TRUE)-log(0.01)-dt(fit$t[1,2]/w, g1num+g2num-2+fit$df.prior, log=TRUE)+log(w)
 	}
-      limmacompnum<-nrow(compid)
-	result<-list(t=limmat, v0=limmav0, df0=limmadf, s20=limmas2, g1num=limmag1num, g2num=limmag2num,compnum=limmacompnum)
-	#result<-list(t=limmat, v0=limmav0, df0=limmadf, s20=limmas2, g1num=limmag1num, g2num=limmag2num)
+	names(limmafits) <- rownames(compid)
+    limmacompnum<-nrow(compid)
+	result<-list(t       = limmat, 
+	             v0      = limmav0, 
+	             df0     = limmadf, 
+	             s20     = limmas2, 
+	             g1num   = limmag1num, 
+	             g2num   = limmag2num,
+	             compnum = limmacompnum,
+	             fits    = limmafits)
 }
 
+limmafit.counts <- 
+  function (exprs, groupid, compid, norm.factor.method = "TMM", voom.normalize.method = "none") 
+  {
+	limmafits  <- list()
+	compnum    <- nrow(compid)
+	genenum    <- nrow(exprs)	
+	limmat     <- matrix(NA,genenum,compnum)
+	limmas2    <- rep(0,compnum)
+	limmadf    <- rep(0,compnum)
+	limmav0    <- rep(0,compnum)
+	limmag1num <- rep(0,compnum)
+	limmag2num <- rep(0,compnum)
+
+	rownames(limmat)  <- rownames(exprs)
+	colnames(limmat)  <- rownames(compid)
+	names(limmas2)    <- rownames(compid)
+	names(limmadf)    <- rownames(compid)
+	names(limmav0)    <- rownames(compid)
+	names(limmag1num) <- rownames(compid)
+	names(limmag2num) <- rownames(compid)
+	
+    for (i in 1:compnum) {
+      message(paste("Running limma for comparision",i,"/",compnum))
+      selid1 <- which(groupid == compid[i, 1])
+      selid2 <- which(groupid == compid[i, 2])
+      # make a new count data frame
+      counts <- cbind(exprs[, selid1], exprs[, selid2])
+      
+      # remove NAs 
+      not.nas <- which(apply(counts, 1, function(x) !any(is.na(x))) == TRUE)
+      
+      # runn voom/limma
+      d <- DGEList(counts[not.nas,])
+      d <- calcNormFactors(d, method = norm.factor.method)
+      g1num <- length(selid1)
+      g2num <- length(selid2)
+      designmat <- cbind(base = rep(1, (g1num + g2num)), delta = c(rep(0, 
+                                                                       g1num), rep(1, g2num)))
+      
+      y <- voom(d, designmat, normalize.method = voom.normalize.method)
+      fit <- lmFit(y, designmat)
+      fit <- eBayes(fit)
+       
+      limmafits[[i]] <- fit
+      limmat[not.nas, i] <- fit$t[, 2]
+      limmas2[i] <- fit$s2.prior
+      limmadf[i] <- fit$df.prior
+      limmav0[i] <- fit$var.prior[2]
+      limmag1num[i] <- g1num
+      limmag2num[i] <- g2num
+    }
+    limmacompnum <- nrow(compid)
+    names(limmafits) <- rownames(compid)
+    result <- list(t       = limmat, 
+                   v0      = limmav0, 
+                   df0     = limmadf, 
+                   s20     = limmas2,
+                   g1num   = limmag1num, 
+                   g2num   = limmag2num, 
+                   compnum = limmacompnum,
+                   fits    = limmafits)
+  }
+  
+limmafit.list <- 
+  function (fitlist, cmp.idx=2) 
+  {
+   compnum    <- length(fitlist)
+
+   genes <- c()
+   for (i in 1:compnum) genes <- unique(c(genes, rownames(fitlist[[i]])))
+
+   genenum    <- length(genes)	
+   limmat     <- matrix(NA,genenum,compnum)
+   limmas2    <- rep(0,compnum)
+   limmadf    <- rep(0,compnum)
+   limmav0    <- rep(0,compnum)
+   limmag1num <- rep(0,compnum)
+   limmag2num <- rep(0,compnum)
+   
+   rownames(limmat)  <- genes
+   colnames(limmat)  <- names(fitlist)
+   names(limmas2)    <- names(fitlist)
+   names(limmadf)    <- names(fitlist)
+   names(limmav0)    <- names(fitlist)
+   names(limmag1num) <- names(fitlist)
+   names(limmag2num) <- names(fitlist)
+   	
+   for (i in 1:compnum) {
+     this.t <- fitlist[[i]]$t[,cmp.idx]
+     limmat[names(this.t),i] <- this.t
+     
+     limmas2[i]    <- fitlist[[i]]$s2.prior
+     limmadf[i]    <- fitlist[[i]]$df.prior
+     limmav0[i]    <- fitlist[[i]]$var.prior[cmp.idx]
+     limmag1num[i] <- sum(fitlist[[i]]$design[,cmp.idx]==0)
+     limmag2num[i] <- sum(fitlist[[i]]$design[,cmp.idx]==1)
+   }
+   
+   limmacompnum <- compnum
+   result <- list(t       = limmat, 
+                  v0      = limmav0, 
+                  df0     = limmadf, 
+                  s20     = limmas2,
+                  g1num   = limmag1num, 
+                  g2num   = limmag2num, 
+                  compnum = limmacompnum,
+                  fits    = limmafits)
+      
+  }
+  
 ## Rank genes based on statistics
 generank<-function(x) {
 	xcol<-ncol(x)
@@ -76,134 +206,120 @@ modt.f1.loglike<-function(x,param) {
 ## Correlation Motif Fit
 cmfit<-function(x, type, K=1, tol=1e-3, max.iter=100) {
 	## initialize
-	xrow<-nrow(x)
-	xcol<-ncol(x)
-	loglike0<-list()
-	loglike1<-list()
-	p<-rep(1,K)/K
-	q<-matrix(runif(K*xcol), K, xcol)
-	q[1,]<-rep(0.01,xcol)
+	xrow <- nrow(x)			
+    xcol <- ncol(x)			
+    loglike0 <- list()			
+    loglike1 <- list()			
+    p <- rep(1, K)/K			
+    q <- matrix(runif(K * xcol), K, xcol)			
+    q[1, ] <- rep(0.01, xcol)			
+    for (i in 1:xcol) {			
+        f0 <- type[[i]][[1]]			
+        f0param <- type[[i]][[2]]			
+        f1 <- type[[i]][[3]]			
+        f1param <- type[[i]][[4]]			
+        loglike0[[i]] <- f0(x[, i], f0param)			
+        loglike1[[i]] <- f1(x[, i], f1param)			
+    }			
+    condlike <- list()			
+    for (i in 1:xcol) {			
+        condlike[[i]] <- matrix(0, xrow, K)			
+    }			
+    loglike.old <- -1e+10			
+    for (i.iter in 1:max.iter) {			
+        err <- tol + 1			
+        clustlike <- matrix(0, xrow, K)			
 
-	## compute loglikelihood
-	for(i in 1:xcol) {
-		f0<-type[[i]][[1]]
-		f0param<-type[[i]][[2]]
-		f1<-type[[i]][[3]]
-		f1param<-type[[i]][[4]]
-		loglike0[[i]]<-f0(x[,i],f0param)
-		loglike1[[i]]<-f1(x[,i],f1param)	
-	}
-
-	## EM algorithm to get MLE of p and q
-	condlike<-list()
-	for(i in 1:xcol) {
-		condlike[[i]]<-matrix(0,xrow,K)
-	}
-
-	loglike.old <- -1e10
-	for(i.iter in 1:max.iter) {
-		if((i.iter%%50) == 0) {
-			print(paste("We have run the first ", i.iter, " iterations for K=", K,sep=""))
-			#print(loglike.old)
-		}
-		err<-tol+1
-
-		## compute posterior cluster membership
-		clustlike<-matrix(0,xrow,K)
-		templike <- matrix(0,xrow,2)
-		for(j in 1:K) {
-			for(i in 1:xcol) {
-				templike[,1]<-log(q[j,i])+loglike1[[i]]
-				templike[,2]<-log(1-q[j,i])+loglike0[[i]]
-				tempmax<-pmax(templike[,1],templike[,2])
-				for(z in 1:2) {
-					templike[,z]<-exp(templike[,z]-tempmax)
-				}
-				tempsum<-templike[,1]+templike[,2]
-				clustlike[,j]<-clustlike[,j]+tempmax+log(tempsum)
-				condlike[[i]][,j]<-templike[,1]/tempsum
-			}
-			clustlike[,j]<-clustlike[,j]+log(p[j])
-		}
-
-		tempmax<-apply(clustlike,1,max)
-		for(j in 1:K) {
-			clustlike[,j]<-exp(clustlike[,j]-tempmax)
-		}
-		tempsum<-apply(clustlike,1,sum)
+        templike1 <- vector("numeric",xrow)
+        templike2 <- vector("numeric",xrow)
+        for (j in 1:K) {			
+            for (i in 1:xcol) {			
+                templike1 <- log(q[j, i]) + loglike1[[i]]			
+                templike2 <- log(1 - q[j, i]) + loglike0[[i]]			
+                
+                tempmax <- Rfast::Pmax(templike1, templike2)
+                
+                templike1 <- exp(templike1 - tempmax)			
+                templike2 <- exp(templike2 - tempmax)			
+                
+                tempsum <- templike1 + templike2
+                clustlike[, j] <- clustlike[, j] + tempmax + 			
+                  log(tempsum)			
+                condlike[[i]][, j] <- templike1/tempsum			
+            }			
+            clustlike[, j] <- clustlike[, j] + log(p[j])			
+        }			
 		
+        tempmax <- Rfast::rowMaxs(clustlike)
+        for (j in 1:K) {			
+            clustlike[, j] <- exp(clustlike[, j] - tempmax)			
+        }
 		
-		## update motif occurrence rate
-		for(j in 1:K) {
-			clustlike[,j]<-clustlike[,j]/tempsum
-		}
+        tempsum <- Rfast::rowsums(clustlike)	
+        for (j in 1:K) {			
+            clustlike[, j] <- clustlike[, j]/tempsum			
+        }			
 	
-		p.new<-(apply(clustlike,2,sum)+1)/(xrow+K)
+        p.new <- (Rfast::colsums(clustlike) + 1)/(xrow + K)		
+        q.new <- matrix(0, K, xcol)			
+        for (j in 1:K) {			
+            clustpsum <- sum(clustlike[, j])			
+            for (i in 1:xcol) {			
+                q.new[j, i] <- (sum(clustlike[, j] * condlike[[i]][, 			
+                  j]) + 1)/(clustpsum + 2)			
+            }			
+        }			
+        err.p <- max(abs(p.new - p)/p)			
+        err.q <- max(abs(q.new - q)/q)			
+        err <- max(err.p, err.q)			
+        loglike.new <- (sum(tempmax + log(tempsum)) + sum(log(p.new)) + 			
+            sum(log(q.new) + log(1 - q.new)))/xrow			
+        p <- p.new			
+        q <- q.new			
+        loglike.old <- loglike.new			
+        if (err < tol) {			
+            break			
+        }			
+    }			
+    clustlike <- matrix(0, xrow, K)			
+    for (j in 1:K) {			
+        for (i in 1:xcol) {			
+            templike1 <- log(q[j, i]) + loglike1[[i]]			
+            templike2 <- log(1 - q[j, i]) + loglike0[[i]]			
+            
+            tempmax <- Rfast::Pmax(templike1, templike2)
+            			
+            templike1 <- exp(templike1 - tempmax)	
+            templike2 <- exp(templike2 - tempmax)	
+            	
+            tempsum <- templike1 + templike2			
+            clustlike[, j] <- clustlike[, j] + tempmax + log(tempsum)			
+            condlike[[i]][, j] <- templike1/tempsum			
+        }			
+        clustlike[, j] <- clustlike[, j] + log(p[j])			
+    }			
 		
-		## update motifs
-		q.new<-matrix(0, K, xcol)
-		for(j in 1:K) {
-			clustpsum<-sum(clustlike[,j])
-			for(i in 1:xcol) {
-				q.new[j,i]<-(sum(clustlike[,j]*condlike[[i]][,j])+1)/(clustpsum+2)
-			}
-		}
-
-		## evaluate convergence
-		err.p<-max(abs(p.new-p)/p)
-		err.q<-max(abs(q.new-q)/q)
-		err<-max(err.p, err.q)
-
-		## evaluate whether the log.likelihood increases
-		loglike.new<-(sum(tempmax+log(tempsum))+sum(log(p.new))+sum(log(q.new)+log(1-q.new)))/xrow
+    tempmax <- Rfast::rowMaxs(clustlike)	
+    for (j in 1:K) {			
+        clustlike[, j] <- exp(clustlike[, j] - tempmax)			
+    }			
 		
-
-		p<-p.new
-		q<-q.new
-		loglike.old<-loglike.new
-
-		if(err<tol) {
-			break;
-		}
-	}
-	## compute posterior p
-	clustlike<-matrix(0,xrow,K)
-	for(j in 1:K) {
-		for(i in 1:xcol) {
-			templike[,1]<-log(q[j,i])+loglike1[[i]]
-			templike[,2]<-log(1-q[j,i])+loglike0[[i]]
-			tempmax<-pmax(templike[,1],templike[,2])
-			for(z in 1:2) {
-				templike[,z]<-exp(templike[,z]-tempmax)
-			}
-			tempsum<-templike[,1]+templike[,2]
-			clustlike[,j]<-clustlike[,j]+tempmax+log(tempsum)
-			condlike[[i]][,j]<-templike[,1]/tempsum
-		}
-		clustlike[,j]<-clustlike[,j]+log(p[j])
-	}
-
-	tempmax<-apply(clustlike,1,max)
-	for(j in 1:K) {
-		clustlike[,j]<-exp(clustlike[,j]-tempmax)
-	}
-	tempsum<-apply(clustlike,1,sum)
-	for(j in 1:K) {
-		clustlike[,j]<-clustlike[,j]/tempsum
-	}
-	
-	p.post<-matrix(0,xrow,xcol)
-	for(j in 1:K) {
-		for(i in 1:xcol) {
-			p.post[,i]<-p.post[,i]+clustlike[,j]*condlike[[i]][,j]
-		}
-	}
-
-	## return
-	#calculate back loglikelihood
-	loglike.old<-loglike.old-(sum(log(p))+sum(log(q)+log(1-q)))/xrow
-	loglike.old<-loglike.old*xrow
-	result<-list(p.post=p.post, motif.prior=p, motif.q=q, loglike=loglike.old)
+    tempsum <- Rfast::rowsums(clustlike)
+    for (j in 1:K) {			
+        clustlike[, j] <- clustlike[, j]/tempsum			
+    }			
+    p.post <- matrix(0, xrow, xcol)			
+    for (j in 1:K) {			
+        for (i in 1:xcol) {			
+            p.post[, i] <- p.post[, i] + clustlike[, j] * condlike[[i]][, 			
+                j]			
+        }			
+    }			
+    loglike.old <- loglike.old - (sum(log(p)) + sum(log(q) + 			
+        log(1 - q)))/xrow			
+    loglike.old <- loglike.old * xrow			
+    result <- list(p.post = p.post, motif.prior = p, motif.q = q, 			
+        loglike = loglike.old)		
 }
 
 ## Fit using (0,0,...,0) and (1,1,...,1)
@@ -515,13 +631,39 @@ generatetype<-function(limfitted)
   	}
     	jtype
 }
-cormotiffit<-function(exprs,groupid,compid,K=1, tol=1e-3, max.iter=100,BIC=TRUE)
+
+cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3, 
+                       max.iter=100, BIC=TRUE, norm.factor.method="TMM", 
+                       voom.normalize.method = "none")
 {
-	limfitted<-limmafit(exprs,groupid,compid)
-        jtype<-generatetype(limfitted)
+	# first I want to do some typechecking. Input can be either a normalized 
+	# matrix, a count matrix, or a list of limma fits. Dispatch the correct
+	# limmafit accordingly.
+	limfitted <- list()
+	if (is.matrix(exprs)) { # groupid and compid must be given
+		if (is.null(groupid) | is.null(compid)) {
+			stop("compid and groupid must be specified if exprs is not a list of limma fits")
+		}
+		if (all(X.counts == floor(X.counts), na.rm = TRUE)) {
+			limfitted <- limmafit.counts(exprs,groupid,compid, norm.factor.method, voom.normalize.method)
+		} else {
+		    limfitted <- limmafit.default(exprs,groupid,compid)
+		}
+	} else if (is.list(exprs) {
+		if (all(unlist(lapply(fitlist, function(i) attr(i, "class") == "MArrayLM")))) {
+			limfitted <- limmafit.list(exprs)
+		}
+	} else {
+		stop("input must be a matrix of gene expression or a list of limma fits")
+	}
+	
+    jtype<-generatetype(limfitted)
 	fitresult<-list()
-	for(i in 1:length(K))
-		fitresult[[i]]<-cmfit(limfitted$t,type=jtype,K=K[i],max.iter=max.iter,tol=tol)
+	#for(i in 1:length(K))
+	#	fitresult[[i]]<-cmfit(limfitted$t,type=jtype,K=K[i],max.iter=max.iter,tol=tol)
+	bplapply(1:length(K), function(i) {
+	  cmfit(limfitted$t,type=jtype,K=K[i],max.iter=max.iter,tol=tol)
+	}) -> fitresult
 	bic<-rep(0,length(K))
 	aic<-rep(0,length(K))
 	loglike<-rep(0,length(K))
@@ -543,30 +685,35 @@ cormotiffit<-function(exprs,groupid,compid,K=1, tol=1e-3, max.iter=100,BIC=TRUE)
 			aic=cbind(K,aic),loglike=cbind(K,loglike))
 	
 } 
+
 cormotiffitall<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 {
 	limfitted<-limmafit(exprs,groupid,compid)
         jtype<-generatetype(limfitted)
 	fitresult<-cmfitall(limfitted$t,type=jtype,tol=1e-3,max.iter=max.iter)
-} 
+}
+
 cormotiffitsep<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 {
 	limfitted<-limmafit(exprs,groupid,compid)
         jtype<-generatetype(limfitted)
 	fitresult<-cmfitsep(limfitted$t,type=jtype,tol=1e-3,max.iter=max.iter)
 } 
+
 cormotiffitfull<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 {
 	limfitted<-limmafit(exprs,groupid,compid)
         jtype<-generatetype(limfitted)
 	fitresult<-cmfitfull(limfitted$t,type=jtype,tol=1e-3,max.iter=max.iter)
 } 
+
 plotIC<-function(fitted_cormotif)
 {
 	oldpar<-par(mfrow=c(1,2))
 	plot(fitted_cormotif$bic[,1], fitted_cormotif$bic[,2], type="b",xlab="Motif Number", ylab="BIC", main="BIC")
 	plot(fitted_cormotif$aic[,1], fitted_cormotif$aic[,2], type="b",xlab="Motif Number", ylab="AIC", main="AIC")
 }
+
 plotMotif<-function(fitted_cormotif,title="")
 {
 	  layout(matrix(1:2,ncol=2))
