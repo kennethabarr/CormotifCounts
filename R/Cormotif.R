@@ -634,7 +634,7 @@ generatetype<-function(limfitted)
 
 cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3, 
                        max.iter=100, BIC=TRUE, norm.factor.method="TMM", 
-                       voom.normalize.method = "none", runtype=c("logCPM","counts","limmafits"))
+                       voom.normalize.method = "none", runtype=c("logCPM","counts","limmafits"), each=10)
 {
 	# first I want to do some typechecking. Input can be either a normalized 
 	# matrix, a count matrix, or a list of limma fits. Dispatch the correct
@@ -650,20 +650,32 @@ cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3,
 		stop("runtype must be one of 'logCPM', 'counts', or 'limmafits'")
 	}
 	
+	
     jtype<-generatetype(limfitted)
 	fitresult<-list()
-	#for(i in 1:length(K))
-	#	fitresult[[i]]<-cmfit(limfitted$t,type=jtype,K=K[i],max.iter=max.iter,tol=tol)
-	bplapply(1:length(K), function(i) {
-	  cmfit(limfitted$t,type=jtype,K=K[i],max.iter=max.iter,tol=tol)
-	}) -> fitresult
+	ks <- rep(K, each = each)
+    fitresult <- bplapply(1:length(ks), function(i, ks, limfitted, jtype) {
+        CormotifCounts:::cmfit(limfitted$t, type = jtype, K = ks[i], max.iter = 10000, 
+            tol = 1e-5)
+    }, ks=ks, limfitted=limfitted, jtype=jtype)
+    
+    best.fitresults <- list()
+    for (i in 1:length(K)) {
+      w.k <- which(ks==K[i])
+      this.loglike <- c()
+      for (j in w.k) this.loglike[j] <- fitresult[[j]]$loglike
+      w.min <- which(this.loglike == min(this.loglike, na.rm = TRUE))[1]
+      best.fitresults[[i]] <- fitresult[[w.min]]
+    }
+    fitresult <- best.fitresults
+    
 	bic<-rep(0,length(K))
 	aic<-rep(0,length(K))
 	loglike<-rep(0,length(K))
 	for(i in 1:length(K))
 			loglike[i]<-fitresult[[i]]$loglike
 	for(i in 1:length(K))
-			bic[i]<--2*fitresult[[i]]$loglike+(K[i]-1+K[i]*limfitted$compnum)*log(dim(exprs)[1])
+			bic[i]<--2*fitresult[[i]]$loglike+(K[i]-1+K[i]*limfitted$compnum)*log(dim(limfitted$t)[1])
 	for(i in 1:length(K))
 			aic[i]<--2*fitresult[[i]]$loglike+2*(K[i]-1+K[i]*limfitted$compnum)
 	if(BIC==TRUE)
