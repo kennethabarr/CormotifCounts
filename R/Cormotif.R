@@ -649,7 +649,7 @@ cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3,
 		} else {
 		    limfitted <- limmafit.default(exprs,groupid,compid)
 		}
-	} else if (is.list(exprs) {
+	} else if (is.list(exprs)) {
 		if (all(unlist(lapply(fitlist, function(i) attr(i, "class") == "MArrayLM")))) {
 			limfitted <- limmafit.list(exprs)
 		}
