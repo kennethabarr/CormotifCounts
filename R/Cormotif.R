@@ -634,27 +634,20 @@ generatetype<-function(limfitted)
 
 cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3, 
                        max.iter=100, BIC=TRUE, norm.factor.method="TMM", 
-                       voom.normalize.method = "none")
+                       voom.normalize.method = "none", runtype=c("logCPM","counts","limmafits"))
 {
 	# first I want to do some typechecking. Input can be either a normalized 
 	# matrix, a count matrix, or a list of limma fits. Dispatch the correct
 	# limmafit accordingly.
 	limfitted <- list()
-	if (is.matrix(exprs)) { # groupid and compid must be given
-		if (is.null(groupid) | is.null(compid)) {
-			stop("compid and groupid must be specified if exprs is not a list of limma fits")
-		}
-		if (all(X.counts == floor(X.counts), na.rm = TRUE)) {
-			limfitted <- limmafit.counts(exprs,groupid,compid, norm.factor.method, voom.normalize.method)
-		} else {
-		    limfitted <- limmafit.default(exprs,groupid,compid)
-		}
-	} else if (is.list(exprs)) {
-		if (all(unlist(lapply(fitlist, function(i) attr(i, "class") == "MArrayLM")))) {
-			limfitted <- limmafit.list(exprs)
-		}
+	if (runtype=="counts") {
+	  limfitted <- limmafit.counts(exprs,groupid,compid, norm.factor.method, voom.normalize.method)
+	} else if (runtype=="logCPM") {
+	  limfitted <- limmafit.default(exprs,groupid,compid)
+	} else if (runtype=="limmafits") {
+	  limfitted <- limmafit.list(exprs)
 	} else {
-		stop("input must be a matrix of gene expression or a list of limma fits")
+		stop("runtype must be one of 'logCPM', 'counts', or 'limmafits'")
 	}
 	
     jtype<-generatetype(limfitted)
