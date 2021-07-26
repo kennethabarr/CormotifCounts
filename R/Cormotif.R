@@ -634,7 +634,7 @@ generatetype<-function(limfitted)
 
 cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3, 
                        max.iter=100, BIC=TRUE, norm.factor.method="TMM", 
-                       voom.normalize.method = "none", runtype=c("logCPM","counts","limmafits"), each=10)
+                       voom.normalize.method = "none", runtype=c("logCPM","counts","limmafits"), each=3)
 {
 	# first I want to do some typechecking. Input can be either a normalized 
 	# matrix, a count matrix, or a list of limma fits. Dispatch the correct
@@ -655,8 +655,8 @@ cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3,
 	fitresult<-list()
 	ks <- rep(K, each = each)
     fitresult <- bplapply(1:length(ks), function(i, ks, limfitted, jtype) {
-        CormotifCounts:::cmfit(limfitted$t, type = jtype, K = ks[i], max.iter = 10000, 
-            tol = 1e-5)
+        cmfit(limfitted$t, type = jtype, K = ks[i], max.iter = max.iter, 
+            tol = tol)
     }, ks=ks, limfitted=limfitted, jtype=jtype)
     
     best.fitresults <- list()
