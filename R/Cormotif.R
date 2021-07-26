@@ -206,118 +206,120 @@ modt.f1.loglike<-function(x,param) {
 ## Correlation Motif Fit
 cmfit<-function(x, type, K=1, tol=1e-3, max.iter=100) {
 	## initialize
-	xrow <- nrow(x)			
-    xcol <- ncol(x)			
-    loglike0 <- list()			
-    loglike1 <- list()			
-    p <- rep(1, K)/K			
-    q <- matrix(runif(K * xcol), K, xcol)			
-    q[1, ] <- rep(0.01, xcol)			
-    for (i in 1:xcol) {			
-        f0 <- type[[i]][[1]]			
-        f0param <- type[[i]][[2]]			
-        f1 <- type[[i]][[3]]			
-        f1param <- type[[i]][[4]]			
-        loglike0[[i]] <- f0(x[, i], f0param)			
-        loglike1[[i]] <- f1(x[, i], f1param)			
-    }			
-    condlike <- list()			
-    for (i in 1:xcol) {			
-        condlike[[i]] <- matrix(0, xrow, K)			
-    }			
-    loglike.old <- -1e+10			
-    for (i.iter in 1:max.iter) {			
-        err <- tol + 1			
-        clustlike <- matrix(0, xrow, K)			
-
-        templike1 <- vector("numeric",xrow)
-        templike2 <- vector("numeric",xrow)
-        for (j in 1:K) {			
-            for (i in 1:xcol) {			
-                templike1 <- log(q[j, i]) + loglike1[[i]]			
-                templike2 <- log(1 - q[j, i]) + loglike0[[i]]			
-                
-                tempmax <- Rfast::Pmax(templike1, templike2)
-                
-                templike1 <- exp(templike1 - tempmax)			
-                templike2 <- exp(templike2 - tempmax)			
-                
-                tempsum <- templike1 + templike2
-                clustlike[, j] <- clustlike[, j] + tempmax + 			
-                  log(tempsum)			
-                condlike[[i]][, j] <- templike1/tempsum			
-            }			
-            clustlike[, j] <- clustlike[, j] + log(p[j])			
-        }			
-		
-        tempmax <- Rfast::rowMaxs(clustlike)
-        for (j in 1:K) {			
-            clustlike[, j] <- exp(clustlike[, j] - tempmax)			
+	xrow <- nrow(x)
+    xcol <- ncol(x)
+    loglike0 <- list()
+    loglike1 <- list()
+    p <- rep(1, K)/K
+    q <- matrix(runif(K * xcol), K, xcol)
+    q[1, ] <- rep(0.01, xcol)
+    for (i in 1:xcol) {
+        f0 <- type[[i]][[1]]
+        f0param <- type[[i]][[2]]
+        f1 <- type[[i]][[3]]
+        f1param <- type[[i]][[4]]
+        loglike0[[i]] <- f0(x[, i], f0param)
+        loglike1[[i]] <- f1(x[, i], f1param)
+    }
+    condlike <- list()
+    for (i in 1:xcol) {
+        condlike[[i]] <- matrix(0, xrow, K)
+    }
+    loglike.old <- -1e+10
+    for (i.iter in 1:max.iter) {
+        if ((i.iter%%50) == 0) {
+            print(paste("We have run the first ", i.iter, " iterations for K=", 
+                K, sep = ""))
         }
-		
-        tempsum <- Rfast::rowsums(clustlike)	
-        for (j in 1:K) {			
-            clustlike[, j] <- clustlike[, j]/tempsum			
-        }			
-	
-        p.new <- (Rfast::colsums(clustlike) + 1)/(xrow + K)		
-        q.new <- matrix(0, K, xcol)			
-        for (j in 1:K) {			
-            clustpsum <- sum(clustlike[, j])			
-            for (i in 1:xcol) {			
-                q.new[j, i] <- (sum(clustlike[, j] * condlike[[i]][, 			
-                  j]) + 1)/(clustpsum + 2)			
-            }			
-        }			
-        err.p <- max(abs(p.new - p)/p)			
-        err.q <- max(abs(q.new - q)/q)			
-        err <- max(err.p, err.q)			
-        loglike.new <- (sum(tempmax + log(tempsum)) + sum(log(p.new)) + 			
-            sum(log(q.new) + log(1 - q.new)))/xrow			
-        p <- p.new			
-        q <- q.new			
-        loglike.old <- loglike.new			
-        if (err < tol) {			
-            break			
-        }			
-    }			
-    clustlike <- matrix(0, xrow, K)			
-    for (j in 1:K) {			
-        for (i in 1:xcol) {			
-            templike1 <- log(q[j, i]) + loglike1[[i]]			
-            templike2 <- log(1 - q[j, i]) + loglike0[[i]]			
-            
+        err <- tol + 1
+        clustlike <- matrix(0, xrow, K)
+        #templike <- matrix(0, xrow, 2)
+        templike1 <- rep(0, xrow)
+        templike2 <- rep(0, xrow)
+        for (j in 1:K) {
+            for (i in 1:xcol) {
+                templike1 <- log(q[j, i]) + loglike1[[i]]
+                templike2 <- log(1 - q[j, i]) + loglike0[[i]]
+                tempmax <- Rfast::Pmax(templike1, templike2)
+
+                templike1 <- exp(templike1 - tempmax)
+                templike2 <- exp(templike2 - tempmax)
+
+                tempsum <- templike1 + templike2
+                clustlike[, j] <- clustlike[, j] + tempmax + 
+                  log(tempsum)
+                condlike[[i]][, j] <- templike1/tempsum
+            }
+            clustlike[, j] <- clustlike[, j] + log(p[j])
+        }
+        #tempmax <- apply(clustlike, 1, max)
+        tempmax <- Rfast::rowMaxs(clustlike, value=TRUE)
+        for (j in 1:K) {
+            clustlike[, j] <- exp(clustlike[, j] - tempmax)
+        }
+        #tempsum <- apply(clustlike, 1, sum)
+        tempsum <- Rfast::rowsums(clustlike)
+        for (j in 1:K) {
+            clustlike[, j] <- clustlike[, j]/tempsum
+        }
+        #p.new <- (apply(clustlike, 2, sum) + 1)/(xrow + K)
+        p.new <- (Rfast::colsums(clustlike) + 1)/(xrow + K)
+        q.new <- matrix(0, K, xcol)
+        for (j in 1:K) {
+            clustpsum <- sum(clustlike[, j])
+            for (i in 1:xcol) {
+                q.new[j, i] <- (sum(clustlike[, j] * condlike[[i]][, 
+                  j]) + 1)/(clustpsum + 2)
+            }
+        }
+        err.p <- max(abs(p.new - p)/p)
+        err.q <- max(abs(q.new - q)/q)
+        err <- max(err.p, err.q)
+        loglike.new <- (sum(tempmax + log(tempsum)) + sum(log(p.new)) + 
+            sum(log(q.new) + log(1 - q.new)))/xrow
+        p <- p.new
+        q <- q.new
+        loglike.old <- loglike.new
+        if (err < tol) {
+            break
+        }
+    }
+    clustlike <- matrix(0, xrow, K)
+    for (j in 1:K) {
+        for (i in 1:xcol) {
+            templike1 <- log(q[j, i]) + loglike1[[i]]
+            templike2 <- log(1 - q[j, i]) + loglike0[[i]]
             tempmax <- Rfast::Pmax(templike1, templike2)
-            			
-            templike1 <- exp(templike1 - tempmax)	
-            templike2 <- exp(templike2 - tempmax)	
-            	
-            tempsum <- templike1 + templike2			
-            clustlike[, j] <- clustlike[, j] + tempmax + log(tempsum)			
-            condlike[[i]][, j] <- templike1/tempsum			
-        }			
-        clustlike[, j] <- clustlike[, j] + log(p[j])			
-    }			
-		
-    tempmax <- Rfast::rowMaxs(clustlike)	
-    for (j in 1:K) {			
-        clustlike[, j] <- exp(clustlike[, j] - tempmax)			
-    }			
-		
+
+            templike1 <- exp(templike1 - tempmax)
+            templike2 <- exp(templike2 - tempmax)
+
+            tempsum <- templike1 + templike2
+            clustlike[, j] <- clustlike[, j] + tempmax + log(tempsum)
+            condlike[[i]][, j] <- templike1/tempsum
+        }
+        clustlike[, j] <- clustlike[, j] + log(p[j])
+    }
+    #tempmax <- apply(clustlike, 1, max)
+    Rfast::rowMaxs(clustlike, value=TRUE)
+    for (j in 1:K) {
+        clustlike[, j] <- exp(clustlike[, j] - tempmax)
+    }
+    #tempsum <- apply(clustlike, 1, sum)
     tempsum <- Rfast::rowsums(clustlike)
-    for (j in 1:K) {			
-        clustlike[, j] <- clustlike[, j]/tempsum			
-    }			
-    p.post <- matrix(0, xrow, xcol)			
-    for (j in 1:K) {			
-        for (i in 1:xcol) {			
-            p.post[, i] <- p.post[, i] + clustlike[, j] * condlike[[i]][, 			
-                j]			
-        }			
-    }			
-    loglike.old <- loglike.old - (sum(log(p)) + sum(log(q) + 			
-        log(1 - q)))/xrow			
-    loglike.old <- loglike.old * xrow			
+    for (j in 1:K) {
+        clustlike[, j] <- clustlike[, j]/tempsum
+    }
+    p.post <- matrix(0, xrow, xcol)
+    for (j in 1:K) {
+        for (i in 1:xcol) {
+            p.post[, i] <- p.post[, i] + clustlike[, j] * condlike[[i]][, 
+                j]
+        }
+    }
+    loglike.old <- loglike.old - (sum(log(p)) + sum(log(q) + 
+        log(1 - q)))/xrow
+    loglike.old <- loglike.old * xrow		
     result <- list(p.post = p.post, motif.prior = p, motif.q = q, 			
         loglike = loglike.old, clustlike=clustlike, condlike=condlike)		
 }
@@ -638,7 +640,8 @@ cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3,
 {
 	# first I want to do some typechecking. Input can be either a normalized 
 	# matrix, a count matrix, or a list of limma fits. Dispatch the correct
-	# limmafit accordingly.
+	# limmafit accordingly. 
+	# todo: add some typechecking here
 	limfitted <- list()
 	if (runtype=="counts") {
 	  limfitted <- limmafit.counts(exprs,groupid,compid, norm.factor.method, voom.normalize.method)
@@ -654,36 +657,30 @@ cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3,
     jtype<-generatetype(limfitted)
 	fitresult<-list()
 	ks <- rep(K, each = each)
-    fitresult <- bplapply(1:length(ks), function(i, ks, limfitted, jtype) {
-        cmfit(limfitted$t, type = jtype, K = ks[i], max.iter = max.iter, 
-            tol = tol)
-    }, ks=ks, limfitted=limfitted, jtype=jtype)
+    fitresult <- bplapply(1:length(ks), function(i, x, type, ks, tol, max.iter) {
+    	CormotifCounts:::cmfit(x, type, K = ks[i], tol = tol, max.iter = max.iter)
+    }, x=limfitted$t, type=jtype, ks=ks, tol=tol, max.iter=max.iter)
     
     best.fitresults <- list()
     for (i in 1:length(K)) {
       w.k <- which(ks==K[i])
-      this.loglike <- c()
-      for (j in w.k) this.loglike[j] <- fitresult[[j]]$loglike
-      w.min <- which(this.loglike == min(this.loglike, na.rm = TRUE))[1]
+      this.bic <- c()
+      for (j in w.k) this.bic[j] <- -2 * fitresult[[j]]$loglike + (K[i] - 1 + K[i] * limfitted$compnum) * log(dim(limfitted$t)[1])
+      w.min <- which(this.bic == min(this.bic, na.rm = TRUE))[1]
       best.fitresults[[i]] <- fitresult[[w.min]]
     }
     fitresult <- best.fitresults
     
-	bic<-rep(0,length(K))
-	aic<-rep(0,length(K))
-	loglike<-rep(0,length(K))
-	for(i in 1:length(K))
-			loglike[i]<-fitresult[[i]]$loglike
-	for(i in 1:length(K))
-			bic[i]<--2*fitresult[[i]]$loglike+(K[i]-1+K[i]*limfitted$compnum)*log(dim(limfitted$t)[1])
-	for(i in 1:length(K))
-			aic[i]<--2*fitresult[[i]]$loglike+2*(K[i]-1+K[i]*limfitted$compnum)
-	if(BIC==TRUE)
-	{
+    bic <- rep(0, length(K))
+    aic <- rep(0, length(K))
+    loglike <- rep(0, length(K))
+    for (i in 1:length(K)) loglike[i] <- fitresult[[i]]$loglike
+    for (i in 1:length(K)) bic[i] <- -2 * fitresult[[i]]$loglike + (K[i] - 1 + K[i] * limfitted$compnum) * log(dim(limfitted$t)[1])
+    for (i in 1:length(K)) aic[i] <- -2 * fitresult[[i]]$loglike + 2 * (K[i] - 1 + K[i] * limfitted$compnum)
+	if(BIC==TRUE) {
 		bestflag=which(bic==min(bic))
 	}
-	else
-	{
+	else {
 		bestflag=which(aic==min(aic))
 	}
 	result<-list(bestmotif=fitresult[[bestflag]],bic=cbind(K,bic),
