@@ -10,7 +10,7 @@ Description: Cormotif is a useful tool for identifying patterns of shared
 	uses limma, but does not take advantage of precision weights provided
 	by voom. This package provides small updates to the Cormotif code so that
 	users can run it on count data from RNA-seq.
-Depends: R (>= 2.12.0), affy, limma, BiocParallel, edgeR, Rfast
+Depends: R (>= 2.12.0), affy, limma, BiocParallel, edgeR, matrixStats, Matrix
 Imports: affy, graphics, grDevices
 License: GPL-2
 LazyLoad: yes

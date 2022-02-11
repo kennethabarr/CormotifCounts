@@ -240,7 +240,7 @@ cmfit<-function(x, type, K=1, tol=1e-3, max.iter=100) {
             for (i in 1:xcol) {
                 templike1 <- log(q[j, i]) + loglike1[[i]]
                 templike2 <- log(1 - q[j, i]) + loglike0[[i]]
-                tempmax <- Rfast::Pmax(templike1, templike2)
+                tempmax <- pmax(templike1, templike2)
 
                 templike1 <- exp(templike1 - tempmax)
                 templike2 <- exp(templike2 - tempmax)
@@ -253,17 +253,17 @@ cmfit<-function(x, type, K=1, tol=1e-3, max.iter=100) {
             clustlike[, j] <- clustlike[, j] + log(p[j])
         }
         #tempmax <- apply(clustlike, 1, max)
-        tempmax <- Rfast::rowMaxs(clustlike, value=TRUE)
+        tempmax <- matrixStats::rowMaxs(clustlike, value=TRUE)
         for (j in 1:K) {
             clustlike[, j] <- exp(clustlike[, j] - tempmax)
         }
         #tempsum <- apply(clustlike, 1, sum)
-        tempsum <- Rfast::rowsums(clustlike)
+        tempsum <- Matrix::rowSums(clustlike)
         for (j in 1:K) {
             clustlike[, j] <- clustlike[, j]/tempsum
         }
         #p.new <- (apply(clustlike, 2, sum) + 1)/(xrow + K)
-        p.new <- (Rfast::colsums(clustlike) + 1)/(xrow + K)
+        p.new <- (Matrix::colSums(clustlike) + 1)/(xrow + K)
         q.new <- matrix(0, K, xcol)
         for (j in 1:K) {
             clustpsum <- sum(clustlike[, j])
@@ -289,7 +289,7 @@ cmfit<-function(x, type, K=1, tol=1e-3, max.iter=100) {
         for (i in 1:xcol) {
             templike1 <- log(q[j, i]) + loglike1[[i]]
             templike2 <- log(1 - q[j, i]) + loglike0[[i]]
-            tempmax <- Rfast::Pmax(templike1, templike2)
+            tempmax <- pmax(templike1, templike2)
 
             templike1 <- exp(templike1 - tempmax)
             templike2 <- exp(templike2 - tempmax)
@@ -301,12 +301,12 @@ cmfit<-function(x, type, K=1, tol=1e-3, max.iter=100) {
         clustlike[, j] <- clustlike[, j] + log(p[j])
     }
     #tempmax <- apply(clustlike, 1, max)
-    Rfast::rowMaxs(clustlike, value=TRUE)
+    matrixStats::rowMaxs(clustlike, value=TRUE)
     for (j in 1:K) {
         clustlike[, j] <- exp(clustlike[, j] - tempmax)
     }
     #tempsum <- apply(clustlike, 1, sum)
-    tempsum <- Rfast::rowsums(clustlike)
+    tempsum <- Matrix::rowSums(clustlike)
     for (j in 1:K) {
         clustlike[, j] <- clustlike[, j]/tempsum
     }
