@@ -58,6 +58,7 @@ limmafit.counts <-
   function (exprs, groupid, compid, norm.factor.method = "TMM", voom.normalize.method = "none") 
   {
 	limmafits  <- list()
+	limmay     <- list()
 	compnum    <- nrow(compid)
 	genenum    <- nrow(exprs)	
 	limmat     <- matrix(NA,genenum,compnum)
@@ -98,6 +99,7 @@ limmafit.counts <-
       fit <- eBayes(fit)
        
       limmafits[[i]] <- fit
+      limmay[[i]]    <- y
       limmat[not.nas, i] <- fit$t[, 2]
       limmas2[i] <- fit$s2.prior
       limmadf[i] <- fit$df.prior
@@ -114,7 +116,8 @@ limmafit.counts <-
                    g1num   = limmag1num, 
                    g2num   = limmag2num, 
                    compnum = limmacompnum,
-                   fits    = limmafits)
+                   fits    = limmafits,
+                   y       = limmay)
   }
   
 limmafit.list <- 
@@ -636,7 +639,9 @@ generatetype<-function(limfitted)
 
 cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3, 
                        max.iter=100, BIC=TRUE, norm.factor.method="TMM", 
-                       voom.normalize.method = "none", runtype=c("logCPM","counts","limmafits"), each=3)
+                       voom.normalize.method = "none", 
+                       runtype=c("logCPM","counts","limmafits"), 
+                       each=3)
 {
 	# first I want to do some typechecking. Input can be either a normalized 
 	# matrix, a count matrix, or a list of limma fits. Dispatch the correct
@@ -690,6 +695,7 @@ cormotiffit <- function(exprs, groupid=NULL, compid=NULL, K=1, tol=1e-3,
 
 cormotiffitall<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 {
+	warning("This function has not been updated to use counts!")
 	limfitted<-limmafit(exprs,groupid,compid)
         jtype<-generatetype(limfitted)
 	fitresult<-cmfitall(limfitted$t,type=jtype,tol=1e-3,max.iter=max.iter)
@@ -697,6 +703,7 @@ cormotiffitall<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 
 cormotiffitsep<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 {
+	warning("This function has not been updated to use counts!")
 	limfitted<-limmafit(exprs,groupid,compid)
         jtype<-generatetype(limfitted)
 	fitresult<-cmfitsep(limfitted$t,type=jtype,tol=1e-3,max.iter=max.iter)
@@ -704,6 +711,7 @@ cormotiffitsep<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 
 cormotiffitfull<-function(exprs,groupid,compid, tol=1e-3, max.iter=100)
 {
+	warning("This function has not been updated to use counts!")
 	limfitted<-limmafit(exprs,groupid,compid)
         jtype<-generatetype(limfitted)
 	fitresult<-cmfitfull(limfitted$t,type=jtype,tol=1e-3,max.iter=max.iter)
