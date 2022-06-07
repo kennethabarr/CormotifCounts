@@ -163,7 +163,7 @@ limmafit.list <-
                   g1num   = limmag1num, 
                   g2num   = limmag2num, 
                   compnum = limmacompnum,
-                  fits    = limmafits)
+                  fits    = fitlist)
       
   }
   
