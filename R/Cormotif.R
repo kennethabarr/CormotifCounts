@@ -82,17 +82,19 @@ limmafit.counts <-
       selid2 <- which(groupid == compid[i, 2])
       # make a new count data frame
       counts <- cbind(exprs[, selid1], exprs[, selid2])
-      
-      # remove NAs 
-      not.nas <- which(apply(counts, 1, function(x) !any(is.na(x))) == TRUE)
-      
-      # runn voom/limma
-      d <- DGEList(counts[not.nas,])
-      d <- calcNormFactors(d, method = norm.factor.method)
       g1num <- length(selid1)
       g2num <- length(selid2)
       designmat <- cbind(base = rep(1, (g1num + g2num)), delta = c(rep(0, 
                                                                        g1num), rep(1, g2num)))
+      keep <- filterByExpr(counts, designmat)
+
+      # remove NAs 
+      not.nas <- which(apply(counts, 1, function(x) !any(is.na(x))) == TRUE)
+      not.nas <- not.nas[which(not.nas %in% keep)]
+			     
+      # runn voom/limma
+      d <- DGEList(counts[not.nas,])
+      d <- calcNormFactors(d, method = norm.factor.method)
       
       y <- voom(d, designmat, normalize.method = voom.normalize.method)
       fit <- lmFit(y, designmat)
